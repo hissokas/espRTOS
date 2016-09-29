@@ -22,7 +22,9 @@ GEN_IMAGES= eagle.app.v6.out
 GEN_BINS= eagle.app.v6.bin
 SPECIAL_MKTARGETS=$(APP_MKTARGETS)
 SUBDIRS=    \
-	user
+	user \
+	fatfs  \
+	driver
 
 endif # } PDIR
 
@@ -45,7 +47,9 @@ ifeq ($(FLAVOR),release)
 endif
 
 COMPONENTS_eagle.app.v6 = \
-	user/libuser.a
+	user/libuser.a \
+	fatfs/fatfs.a \
+	driver/driver.a
 
 LINKFLAGS_eagle.app.v6 = \
 	-L$(SDK_PATH)/lib        \
