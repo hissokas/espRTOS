@@ -10,14 +10,17 @@
 / * Redistributions of source code must retain the above copyright notice.
 /
 /-------------------------------------------------------------------------*/
+#include "../driver/spi.h"
+#include "../driver/gpio.h"
+#include "../fatfs/diskio.h"
 
+#define FCLK_SLOW() spi_clock(HSPI, 8, 5)// 80 / (5*8) MHz
+#define FCLK_FAST() spi_clock(HSPI, 2, 1)// 80 / (2*1) MHz // TODO change if does not work
 
-#define FCLK_SLOW() //TODO//{ SPIx_CR1 = (SPIx_CR1 & ~0x38) | 0x28; }	/* Set SCLK = PCLK / 64 */
-#define FCLK_FAST() //TODO//{ SPIx_CR1 = (SPIx_CR1 & ~0x38) | 0x00; }	/* Set SCLK = PCLK / 2 */
+#define MMC_CS_PIN	2 //IO2
 
-
-#define CS_HIGH()	//TODO//GPIOA_BSRR = _BV(4)
-#define CS_LOW()	//TODO// = _BV(4+16)
+#define CS_HIGH()	GPIO_OUTPUT_SET(MC_CS_PIN, 1)//TODO//GPIOA_BSRR = _BV(4)
+#define CS_LOW()	GPIO_OUTPUT_SET(MC_CS_PIN, 0)//TODO// = _BV(4+16)
 #define	MMC_CD		0 // TODO	/* Card detect (yes:true, no:false, default:true) */
 #define	MMC_WP		0 /* Write protected (yes:true, no:false, default:false) */
 
@@ -31,8 +34,7 @@
 
 ---------------------------------------------------------------------------*/
 
-#include "../driver/spi.h"
-#include "../fatfs/diskio.h"
+
 
 
 /* MMC/SD command */
@@ -78,6 +80,7 @@ static
 void init_spi (void)
 {
 	spi_init(HSPI);
+	spi_mode(HSPI, 0, 0);
 	CS_HIGH();			/* Set CS# high */
 
 	for (Timer1 = 10; Timer1; ) ;	/* 10ms */
@@ -162,7 +165,7 @@ int wait_ready (	/* 1:Ready, 0:Timeout */
 	BYTE d;
 
 
-	Timer2 = wt;
+	Timer2 = wt/5;
 	do {
 		d = xchg_spi(0xFF);
 		/* This loop takes a time. Insert rot_rdq() here for multitask envilonment. */
@@ -217,7 +220,7 @@ int rcvr_datablock (	/* 1:OK, 0:Error */
 	BYTE token;
 
 
-	Timer1 = 200;
+	Timer1 = 200/5;
 	do {							/* Wait for DataStart token in timeout of 200ms */
 		token = xchg_spi(0xFF);
 		/* This loop will take a time. Insert rot_rdq() here for multitask envilonment. */

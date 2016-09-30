@@ -63,7 +63,7 @@ void spi_init(uint8 spi_no){
 ////////////////////////////////////////////////////////////////////////////////
 
 void spi_mode(uint8 spi_no, uint8 spi_cpha,uint8 spi_cpol){
-	if(spi_cpha) {
+	if(!spi_cpha == !spi_cpol) { //TODO there was spi_cpha
 		CLEAR_PERI_REG_MASK(SPI_USER(spi_no), SPI_CK_OUT_EDGE);
 	} else {
 		SET_PERI_REG_MASK(SPI_USER(spi_no), SPI_CK_OUT_EDGE);
@@ -111,7 +111,7 @@ void spi_init_gpio(uint8 spi_no, uint8 sysclk_as_spiclk){
 		PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTDI_U, 2); //GPIO12 is HSPI MISO pin (Master Data In)
 		PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTCK_U, 2); //GPIO13 is HSPI MOSI pin (Master Data Out)
 		PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTMS_U, 2); //GPIO14 is HSPI CLK pin (Clock)
-		PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTDO_U, 2); //GPIO15 is HSPI CS pin (Chip Select / Slave Select)
+		PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTDO_U, 2); //GPIO15 is HSPI CS pin (Chip Select / Slave Select) //TODO commentout check
 	}
 
 }
