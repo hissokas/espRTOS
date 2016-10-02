@@ -7,6 +7,8 @@
 #include "../fatfs/diskio.h"
 #include "../driver/gpio.h"
 
+#include "../driver/spi.h"
+
 os_timer_t mmc_timer;
 
 void disk_timerproc(void);
@@ -47,9 +49,20 @@ void user_init(void)
 // 	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO4_U, FUNC_GPIO4);
 // 	GPIO_AS_OUTPUT(1<<4);
 //	GPIO_OUTPUT_SET(4, 1);
- 	xTaskCreate(DiskTask, (signed char *)"Blink", 256, NULL, 2, NULL);
+ 	//xTaskCreate(DiskTask, (signed char *)"Blink", 256, NULL, 2, NULL);
 	printf("PATLAS2\n");
-//	disk_initialize(0);
+	//disk_initialize(0);
+
+
+	printf("Init SPI...\n");
+	spi_init(HSPI);
+	spi_mode(HSPI, 0, 0);
+
+	printf("Init done\n");
+	printf("read %d\n",spi_rxtx8(HSPI, 0xAA));
+
+
+	printf("sent\n");
 //printf("status %d\n", disk_initialize(0));
  	//TODO add printf to timer to see if works
 

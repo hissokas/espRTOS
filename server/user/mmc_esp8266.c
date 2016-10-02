@@ -28,7 +28,7 @@
 #define	MMC_CD		1 // TODO	/* Card detect (yes:true, no:false, default:true) */
 #define	MMC_WP		0 /* Write protected (yes:true, no:false, default:false) */
 
-#define spi_tx8mmc(spi_no, data)       spi_transaction(spi_no, 0, 0, 0, 0, 8,(uint32) data, 8, 0)
+#define spi_tx8mmc(spi_no, data)       spi_rxtx8(spi_no, data)
 
 #define _USE_WRITE 0
 #define _USE_IOCTL 0

@@ -344,3 +344,31 @@ void func(params){
 ///////////////////////////////////////////////////////////////////////////////*/
 
 
+uint32 spi_rxtx8(uint8 spi_no, uint8 data){
+
+	if(spi_no > 1) return 0;  //Check for a valid SPI
+
+	while(spi_busy(spi_no)); //wait for SPI to be ready
+
+	//disable MOSI, MISO, ADDR, COMMAND, DUMMY in case previously set.
+	CLEAR_PERI_REG_MASK(SPI_USER(spi_no), SPI_USR_MOSI|SPI_USR_MISO|SPI_USR_COMMAND|SPI_USR_ADDR|SPI_USR_DUMMY);
+
+    WRITE_PERI_REG(SPI_USER1(spi_no),  ((8-1)&SPI_USR_MOSI_BITLEN)<<SPI_USR_MOSI_BITLEN_S | //Number of bits to Send
+                                          ((8-1)&SPI_USR_MISO_BITLEN)<<SPI_USR_MISO_BITLEN_S);
+
+	SET_PERI_REG_MASK(SPI_USER(spi_no), SPI_USR_MISO_HIGHPART);
+	SET_PERI_REG_MASK(SPI_USER(spi_no), SPI_USR_MOSI);
+
+	WRITE_PERI_REG(SPI_W0(spi_no), ((uint32)(data)<<(32-8)));
+	SET_PERI_REG_MASK(SPI_CMD(spi_no), SPI_USR);
+
+
+	while(spi_busy(spi_no));	//wait for SPI transaction to complete
+	uint32 dat = READ_PERI_REG(SPI_W0(spi_no));
+
+	//#include "esp_common.h"
+	//printf("R %d\n", dat);
+
+	return (uint32)(dat );
+
+}
