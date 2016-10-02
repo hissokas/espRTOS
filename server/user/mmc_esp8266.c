@@ -14,16 +14,21 @@
 #include "../driver/gpio.h"
 #include "../fatfs/diskio.h"
 
-#define FCLK_SLOW() spi_clock(HSPI, 8, 5)// 80 / (5*8) MHz
-#define FCLK_FAST() spi_clock(HSPI, 2, 1)// 80 / (2*1) MHz // TODO change if does not work
+#include "esp_common.h"
 
-#define MMC_CS_PIN	2 //IO2
+#include "esp_misc.h"
 
-#define CS_HIGH()	GPIO_OUTPUT_SET(MC_CS_PIN, 1)//TODO//GPIOA_BSRR = _BV(4)
-#define CS_LOW()	GPIO_OUTPUT_SET(MC_CS_PIN, 0)//TODO// = _BV(4+16)
-#define	MMC_CD		0 // TODO	/* Card detect (yes:true, no:false, default:true) */
+#define FCLK_SLOW() spi_clock(HSPI, 8, 10)// 80 / (5*8) MHz
+#define FCLK_FAST() spi_clock(HSPI, 8, 5)// 80 / (2*1) MHz // TODO change if does not work
+
+#define MMC_CS_PIN	4 //IO2
+
+#define CS_HIGH()	GPIO_OUTPUT_SET(MMC_CS_PIN, 1)//TODO//GPIOA_BSRR = _BV(4)
+#define CS_LOW()	GPIO_OUTPUT_SET(MMC_CS_PIN, 0)//TODO// = _BV(4+16)
+#define	MMC_CD		1 // TODO	/* Card detect (yes:true, no:false, default:true) */
 #define	MMC_WP		0 /* Write protected (yes:true, no:false, default:false) */
 
+#define spi_tx8mmc(spi_no, data)       spi_transaction(spi_no, 0, 0, 0, 0, 8,(uint32) data, 8, 0)
 
 #define _USE_WRITE 0
 #define _USE_IOCTL 0
@@ -79,11 +84,17 @@ BYTE CardType;			/* Card type flags */
 static
 void init_spi (void)
 {
+	printf("Init SPI...\n");
 	spi_init(HSPI);
 	spi_mode(HSPI, 0, 0);
-	CS_HIGH();			/* Set CS# high */
+	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO4_U, FUNC_GPIO4);
+	GPIO_AS_OUTPUT(1<<MMC_CS_PIN);
 
-	for (Timer1 = 10; Timer1; ) ;	/* 10ms */
+	CS_HIGH();			/* Set CS# high */
+	printf("WAINT 10ms...\n");
+	//for (Timer1 = 10/5; Timer1; ) ;	/* 10ms */
+	vTaskDelay (10/portTICK_RATE_MS);
+	printf("Init done\n");
 }
 
 
@@ -93,7 +104,7 @@ BYTE xchg_spi (
 	BYTE dat	/* Data to send */
 )
 {
-	return (BYTE)spi_rx8(HSPI);
+	return (BYTE)spi_tx8mmc(HSPI, dat);
 }
 
 
@@ -164,13 +175,15 @@ int wait_ready (	/* 1:Ready, 0:Timeout */
 {
 	BYTE d;
 
-
+	printf("Setting T2 wr\n");
 	Timer2 = wt/5;
+	printf("setT\n");
 	do {
 		d = xchg_spi(0xFF);
+
 		/* This loop takes a time. Insert rot_rdq() here for multitask envilonment. */
 	} while (d != 0xFF && Timer2);	/* Wait for card goes ready or timeout */
-
+	printf("waitR %d\n"	, d);
 	return (d == 0xFF) ? 1 : 0;
 }
 
@@ -281,15 +294,17 @@ BYTE send_cmd (		/* Return value: R1 resp (bit7==1:Failed to send) */
 	if (cmd & 0x80) {	/* Send a CMD55 prior to ACMD<n> */
 		cmd &= 0x7F;
 		res = send_cmd(CMD55, 0);
+		printf("res %d\n", res);
 		if (res > 1) return res;
 	}
 
 	/* Select the card and wait for ready except to stop multiple block read */
 	if (cmd != CMD12) {
 		deselect();
+		printf("select return\n");
 		if (!select()) return 0xFF;
 	}
-
+	printf("Sending cmd\n");
 	/* Send command packet */
 	xchg_spi(0x40 | cmd);				/* Start + command index */
 	xchg_spi((BYTE)(arg >> 24));		/* Argument[31..24] */
@@ -307,7 +322,7 @@ BYTE send_cmd (		/* Return value: R1 resp (bit7==1:Failed to send) */
 	do
 		res = xchg_spi(0xFF);
 	while ((res & 0x80) && --n);
-
+	printf("res: %d\n", res);
 	return res;							/* Return received response */
 }
 
@@ -333,19 +348,24 @@ DSTATUS disk_initialize (
 
 	if (drv) return STA_NOINIT;			/* Supports only drive 0 */
 	init_spi();							/* Initialize SPI */
-
+	printf("SPI inited\n");
 	if (Stat & STA_NODISK) return Stat;	/* Is card existing in the soket? */
-
+	printf("Set fclk\n");
 	FCLK_SLOW();
+	printf("Set \n");
 	for (n = 10; n; n--) xchg_spi(0xFF);	/* Send 80 dummy clocks */
-
+	printf("dummy sent \n");
 	ty = 0;
 	if (send_cmd(CMD0, 0) == 1) {			/* Put the card SPI/Idle state */
-		Timer1 = 1000;						/* Initialization timeout = 1 sec */
+		Timer1 = 1000/5;						/* Initialization timeout = 1 sec */
 		if (send_cmd(CMD8, 0x1AA) == 1) {	/* SDv2? */
+			printf("CMD8 == 1\n");
 			for (n = 0; n < 4; n++) ocr[n] = xchg_spi(0xFF);	/* Get 32 bit return value of R7 resp */
+			printf("OCR %x %x %x %x\n", ocr[0], ocr[1], ocr[2], ocr[3]);
 			if (ocr[2] == 0x01 && ocr[3] == 0xAA) {				/* Is the card supports vcc of 2.7-3.6V? */
+				printf("Wile1\n");
 				while (Timer1 && send_cmd(ACMD41, 1UL << 30)) ;	/* Wait for end of initialization with ACMD41(HCS) */
+				printf("End\n");
 				if (Timer1 && send_cmd(CMD58, 0) == 0) {		/* Check CCS bit in the OCR */
 					for (n = 0; n < 4; n++) ocr[n] = xchg_spi(0xFF);
 					ty = (ocr[0] & 0x40) ? CT_SD2 | CT_BLOCK : CT_SD2;	/* Card id SDv2 */
@@ -357,11 +377,14 @@ DSTATUS disk_initialize (
 			} else {
 				ty = CT_MMC; cmd = CMD1;	/* MMCv3 (CMD1(0)) */
 			}
+			printf("While11\n");
 			while (Timer1 && send_cmd(cmd, 0)) ;		/* Wait for end of initialization */
+			printf("end\n");
 			if (!Timer1 || send_cmd(CMD16, 512) != 0)	/* Set block length: 512 */
 				ty = 0;
 		}
 	}
+	printf("ty %d\n", ty);
 	CardType = ty;	/* Card type */
 	deselect();
 
@@ -572,7 +595,6 @@ void disk_timerproc (void)
 	if (n) Timer1 = --n;
 	n = Timer2;
 	if (n) Timer2 = --n;
-
 	s = Stat;
 	if (MMC_WP)		/* Write protected */
 		s |= STA_PROTECT;
@@ -583,5 +605,6 @@ void disk_timerproc (void)
 	else		/* Socket empty */
 		s |= (STA_NODISK | STA_NOINIT);
 	Stat = s;
+
 }
 
