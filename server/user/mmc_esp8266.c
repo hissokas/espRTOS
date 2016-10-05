@@ -84,17 +84,14 @@ BYTE CardType;			/* Card type flags */
 static
 void init_spi (void)
 {
-	printf("Init SPI...\n");
 	spi_init(HSPI);
 	spi_mode(HSPI, 0, 0);
 	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO4_U, FUNC_GPIO4);
 	GPIO_AS_OUTPUT(1<<MMC_CS_PIN);
 
 	CS_HIGH();			/* Set CS# high */
-	printf("WAINT 10ms...\n");
 	//for (Timer1 = 10/5; Timer1; ) ;	/* 10ms */
 	vTaskDelay (10/portTICK_RATE_MS);
-	printf("Init done\n");
 }
 
 
@@ -115,17 +112,16 @@ void rcvr_spi_multi (
 	UINT btr		/* Number of bytes to receive (even number) */
 )
 {
-	WORD d;
 
 	btr -= 2;
 	do {					/* Receive the data block into buffer */
-		d = (WORD)spi_rx16(HSPI);
-		buff[1] = d; buff[0] = d >> 8;
+		buff[1] = xchg_spi(0xFF);
+		buff[0] = xchg_spi(0xFF);
 		buff += 2;
 	} while (btr -= 2);
 
-	d = (WORD)spi_rx16(HSPI);
-	buff[1] = d; buff[0] = d >> 8;
+	buff[1] = xchg_spi(0xFF);
+	buff[0] = xchg_spi(0xFF);
 
 }
 
@@ -175,15 +171,12 @@ int wait_ready (	/* 1:Ready, 0:Timeout */
 {
 	BYTE d;
 
-	printf("Setting T2 wr\n");
 	Timer2 = wt/5;
-	printf("setT\n");
 	do {
-		d = spi_rx8(HSPI);
+		d = xchg_spi(0xFF);
 
 		/* This loop takes a time. Insert rot_rdq() here for multitask envilonment. */
 	} while (d != 0xFF && Timer2);	/* Wait for card goes ready or timeout */
-	printf("waitR %d\n"	, d);
 	return (d == 0xFF) ? 1 : 0;
 }
 
@@ -197,7 +190,7 @@ static
 void deselect (void)
 {
 	CS_HIGH();		/* Set CS# high */
-	spi_tx8(HSPI,0xFF);	/* Dummy clock (force DO hi-z for multiple slave SPI) */
+	xchg_spi(0xFF);	/* Dummy clock (force DO hi-z for multiple slave SPI) */
 
 }
 
@@ -235,13 +228,13 @@ int rcvr_datablock (	/* 1:OK, 0:Error */
 
 	Timer1 = 200/5;
 	do {							/* Wait for DataStart token in timeout of 200ms */
-		token = spi_rx8(HSPI);
+		token = xchg_spi(0xFF);
 		/* This loop will take a time. Insert rot_rdq() here for multitask envilonment. */
 	} while ((token == 0xFF) && Timer1);
 	if(token != 0xFE) return 0;		/* Function fails if invalid DataStart token or timeout */
 
 	rcvr_spi_multi(buff, btr);		/* Store trailing data to the buffer */
-	spi_rx8(HSPI); spi_rx8(HSPI);			/* Discard CRC */
+	xchg_spi(0xFF); xchg_spi(0xFF);			/* Discard CRC */
 
 	return 1;						/* Function succeeded */
 }
@@ -294,35 +287,31 @@ BYTE send_cmd (		/* Return value: R1 resp (bit7==1:Failed to send) */
 	if (cmd & 0x80) {	/* Send a CMD55 prior to ACMD<n> */
 		cmd &= 0x7F;
 		res = send_cmd(CMD55, 0);
-		printf("res %d\n", res);
 		if (res > 1) return res;
 	}
 
 	/* Select the card and wait for ready except to stop multiple block read */
 	if (cmd != CMD12) {
 		deselect();
-		printf("select return\n");
 		if (!select()) return 0xFF;
 	}
-	printf("Sending cmd\n");
 	/* Send command packet */
-	spi_tx8(HSPI, 0x40 | cmd);				/* Start + command index */
-	spi_tx8(HSPI, (BYTE)(arg >> 24));		/* Argument[31..24] */
-	spi_tx8(HSPI, (BYTE)(arg >> 16));		/* Argument[23..16] */
-	spi_tx8(HSPI, (BYTE)(arg >> 8));			/* Argument[15..8] */
-	spi_tx8(HSPI, (BYTE)arg);				/* Argument[7..0] */
+	xchg_spi(0x40 | cmd);				/* Start + command index */
+	xchg_spi((BYTE)(arg >> 24));		/* Argument[31..24] */
+	xchg_spi((BYTE)(arg >> 16));		/* Argument[23..16] */
+	xchg_spi((BYTE)(arg >> 8));			/* Argument[15..8] */
+	xchg_spi((BYTE)arg);				/* Argument[7..0] */
 	n = 0x01;							/* Dummy CRC + Stop */
 	if (cmd == CMD0) n = 0x95;			/* Valid CRC for CMD0(0) */
 	if (cmd == CMD8) n = 0x87;			/* Valid CRC for CMD8(0x1AA) */
-	spi_tx8(HSPI, n);
+	xchg_spi(n);
 
 	/* Receive command resp */
-	if (cmd == CMD12) spi_tx8(HSPI, 0xFF);	/* Diacard following one byte when CMD12 */
+	if (cmd == CMD12) xchg_spi(0xFF);	/* Diacard following one byte when CMD12 */
 	n = 10;								/* Wait for response (10 bytes max) */
 	do
-		res = spi_rx8(HSPI);
+		res = xchg_spi(0xFF);
 	while ((res & 0x80) && --n);
-	printf("res: %d\n", res);
 	return res;							/* Return received response */
 }
 
@@ -349,26 +338,18 @@ DSTATUS disk_initialize (
 
 	if (drv) return STA_NOINIT;			/* Supports only drive 0 */
 	init_spi();							/* Initialize SPI */
-	printf("SPI inited\n");
 	if (Stat & STA_NODISK) return Stat;	/* Is card existing in the soket? */
-	printf("Set fclk\n");
 	FCLK_SLOW();
-	printf("Set \n");
-	for (n = 10; n; n--) spi_tx8(HSPI, 0xFF);	/* Send 80 dummy clocks */
-	printf("dummy sent \n");
+	for (n = 10; n; n--) xchg_spi(0xFF);	/* Send 80 dummy clocks */
 	ty = 0;
 	for(index=0; index<5, ret!=1; index++)
 		ret = send_cmd(CMD0, 0);
 	if (ret == 1) {			/* Put the card SPI/Idle state */
 		Timer1 = 1000/5;						/* Initialization timeout = 1 sec */
 		if (send_cmd(CMD8, 0x1AA) == 1) {	/* SDv2? */
-			printf("CMD8 == 1\n");
-			for (n = 0; n < 4; n++) ocr[n] = spi_rx8(HSPI);	/* Get 32 bit return value of R7 resp */
-			printf("OCR %x %x %x %x\n", ocr[0], ocr[1], ocr[2], ocr[3]);
+			for (n = 0; n < 4; n++) ocr[n] = xchg_spi(0xFF);	/* Get 32 bit return value of R7 resp */
 			if (ocr[2] == 0x01 && ocr[3] == 0xAA) {				/* Is the card supports vcc of 2.7-3.6V? */
-				printf("Wile1\n");
 				while (Timer1 && send_cmd(ACMD41, 1UL << 30)) ;	/* Wait for end of initialization with ACMD41(HCS) */
-				printf("End\n");
 				if (Timer1 && send_cmd(CMD58, 0) == 0) {		/* Check CCS bit in the OCR */
 					for (n = 0; n < 4; n++) ocr[n] = spi_rx8(HSPI);
 					ty = (ocr[0] & 0x40) ? CT_SD2 | CT_BLOCK : CT_SD2;	/* Card id SDv2 */
@@ -380,14 +361,11 @@ DSTATUS disk_initialize (
 			} else {
 				ty = CT_MMC; cmd = CMD1;	/* MMCv3 (CMD1(0)) */
 			}
-			printf("While11\n");
 			while (Timer1 && send_cmd(cmd, 0)) ;		/* Wait for end of initialization */
-			printf("end\n");
 			if (!Timer1 || send_cmd(CMD16, 512) != 0)	/* Set block length: 512 */
 				ty = 0;
 		}
 	}
-	printf("ty %d\n", ty);
 	CardType = ty;	/* Card type */
 	deselect();
 

@@ -37,15 +37,15 @@ void LEDBlinkTask (void *pvParameters)
 
 void DiskTask (void *pvParameters)
 {
-	//spi_rxtx8(HSPI, 0xAB); //printf("status %d\n", disk_initialize(0));
-	while(1)
+	printf("status %d\n", disk_initialize(0));
+	/*	while(1)
 {
 	//spi_tx8(HSPI,0xAB);
 	//printf("%x\n",spi_rx8(HSPI));
-	printf("%x ---\n",spi_rxtx8(HSPI, 0xCC));
+	printf("%x ---\n",spi_rxtx8(HSPI, 0xAC));
 	vTaskDelay(300/portTICK_RATE_MS);
 	
-}
+}*/
 	vTaskSuspend(NULL);
 }
 
@@ -63,8 +63,8 @@ void user_init(void)
 
 //
 	printf("Init SPI...\n");
-	spi_init(HSPI);
-	spi_mode(HSPI, 0, 0);
+	spi_init(HSPI);//remove
+	spi_mode(HSPI, 0, 0);//remove
 
 //	printf("Init done\n");
 	xTaskCreate(DiskTask, (signed char *)"Blink", 256, NULL, 2, NULL);
