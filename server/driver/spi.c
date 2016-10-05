@@ -352,21 +352,40 @@ uint32 spi_rxtx8(uint8 spi_no, uint8 data){
 	//disable MOSI, MISO, ADDR, COMMAND, DUMMY in case previously set.
 	CLEAR_PERI_REG_MASK(SPI_USER(spi_no), SPI_USR_MOSI|SPI_USR_MISO|SPI_USR_COMMAND|SPI_USR_ADDR|SPI_USR_DUMMY);
 
-    WRITE_PERI_REG(SPI_USER1(spi_no), ( ((8-1)&SPI_USR_MOSI_BITLEN)<<SPI_USR_MOSI_BITLEN_S /*| //Number of bits to Send
+    WRITE_PERI_REG(SPI_USER1(spi_no), ( ((8-1)&SPI_USR_MOSI_BITLEN)<<SPI_USR_MOSI_BITLEN_S/* | //Number of bits to Send
                                         ((8-1)&SPI_USR_MISO_BITLEN)<<SPI_USR_MISO_BITLEN_S*/));
 
-	//SET_PERI_REG_MASK(SPI_USER(spi_no), SPI_USR_MISO | SPI_USR_MISO_HIGHPART); //ENABLE MISO, ACCUMULATE DATA IN SPI_W0 (0x000000XX)
+	//SET_PERI_REG_MASK(SPI_USER(spi_no), /*SPI_USR_MISO | */ SPI_USR_MISO_HIGHPART); //ENABLE MISO, ACCUMULATE DATA IN SPI_W0 (0x000000XX)
 	SET_PERI_REG_MASK(SPI_USER(spi_no), SPI_USR_MOSI); //ENABLE MOSI, ACCUMULATE DARA IN SPI_W8 (0x000000XX)
+	
+	
+	SET_PERI_REG_MASK(SPI_USER(spi_no), /*SPI_USR_MISO |  SPI_USR_MISO_HIGHPART |*/ SPI_FLASH_MODE | SPI_DOUTDIN);
 
-	WRITE_PERI_REG(SPI_W0(spi_no), (uint32)(data));
+	WRITE_PERI_REG(SPI_W0(spi_no), (uint32)(data<<(32-8)));
 	SET_PERI_REG_MASK(SPI_CMD(spi_no), SPI_USR);
 
 
 	while(spi_busy(spi_no));	//wait for SPI transaction to complete
 	uint32 dat = READ_PERI_REG(SPI_W0(spi_no));
-
-	//#include "esp_common.h"
-	//printf("R %d\n", dat);
+/*
+	#include "esp_common.h"
+	printf("R %x\n",dat);
+	printf("R %x\n", READ_PERI_REG(SPI_W1(spi_no)));
+	printf("R %x\n", READ_PERI_REG(SPI_W2(spi_no)));
+	printf("R %x\n", READ_PERI_REG(SPI_W3(spi_no)));
+	printf("R %x\n", READ_PERI_REG(SPI_W4(spi_no)));	
+	printf("R %x\n", READ_PERI_REG(SPI_W5(spi_no)));
+	printf("R %x\n", READ_PERI_REG(SPI_W6(spi_no)));
+	printf("R %x\n", READ_PERI_REG(SPI_W7(spi_no)));
+	printf("R %x\n", READ_PERI_REG(SPI_W8(spi_no)));
+	printf("R %x\n", READ_PERI_REG(SPI_W9(spi_no)));
+	printf("R %x\n", READ_PERI_REG(SPI_W10(spi_no)));
+printf("R %x\n", READ_PERI_REG(SPI_W11(spi_no)));
+printf("R %x\n", READ_PERI_REG(SPI_W12(spi_no)));
+printf("R %x\n", READ_PERI_REG(SPI_W13(spi_no)));
+printf("R %x\n", READ_PERI_REG(SPI_W14(spi_no)));
+	printf("R %x\n", READ_PERI_REG(SPI_W15(spi_no)));
+*/
 
 	return (uint32)(dat);
 
@@ -386,14 +405,14 @@ uint8 spi_tx_8(uint8 spi_no, uint8 data){
 
 	SET_PERI_REG_MASK(SPI_USER(spi_no), SPI_USR_MOSI); //ENABLE MOSI, ACCUMULATE DARA IN SPI_W8 (0x000000XX)
 
-	WRITE_PERI_REG(SPI_W0(spi_no), (uint32)(data));
+	WRITE_PERI_REG(SPI_W0(spi_no), (uint32)(data<<(32-8)));
 	SET_PERI_REG_MASK(SPI_CMD(spi_no), SPI_USR);
 
 	return 1;
 
 }
 
-uint8 spi_rx_8(uint8 spi_no){
+uint32 spi_rx_8(uint8 spi_no){
 
 	if(spi_no > 1) return 0;  //Check for a valid SPI
 
@@ -404,16 +423,14 @@ uint8 spi_rx_8(uint8 spi_no){
 
     WRITE_PERI_REG(SPI_USER1(spi_no), ( ((8-1)&SPI_USR_MISO_BITLEN)<<SPI_USR_MISO_BITLEN_S ));
 
-	SET_PERI_REG_MASK(SPI_USER(spi_no), SPI_USR_MISO | SPI_USR_MISO_HIGHPART ); //ENABLE MISO, ACCUMULATE DATA IN SPI_W0 (0x000000XX)
+	SET_PERI_REG_MASK(SPI_USER(spi_no), SPI_USR_MISO/* | SPI_USR_MISO_HIGHPART*/ ); //ENABLE MISO, ACCUMULATE DATA IN SPI_W0 (0x000000XX)
 
 	SET_PERI_REG_MASK(SPI_CMD(spi_no), SPI_USR);
 
 
 	while(spi_busy(spi_no));	//wait for SPI transaction to complete
-	uint32 dat = READ_PERI_REG(SPI_W8(spi_no));
+	uint32 dat = READ_PERI_REG(SPI_W0(spi_no));//W8
 
-	//#include "esp_common.h"
-	//printf("R %d\n", dat);
 
 	return (uint32)(dat);
 

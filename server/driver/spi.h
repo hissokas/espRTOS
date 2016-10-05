@@ -65,16 +65,20 @@ void spi_tx_byte_order(uint8 spi_no, uint8 byte_order);
 void spi_rx_byte_order(uint8 spi_no, uint8 byte_order);
 uint32 spi_transaction(uint8 spi_no, uint8 cmd_bits, uint16 cmd_data, uint32 addr_bits, uint32 addr_data, uint32 dout_bits, uint32 dout_data, uint32 din_bits, uint32 dummy_bits);
 uint32 spi_rxtx8(uint8 spi_no, uint8 data);
+
+uint8 spi_tx_8(uint8 spi_no, uint8 data);
+uint32 spi_rx_8(uint8 spi_no);
+
 //Expansion Macros
 #define spi_busy(spi_no) READ_PERI_REG(SPI_CMD(spi_no))&SPI_USR
 
 #define spi_txd(spi_no, bits, data) spi_transaction(spi_no, 0, 0, 0, 0, bits, (uint32) data, 0, 0)
-#define spi_tx8(spi_no, data)       spi_transaction(spi_no, 0, 0, 0, 0, 8,    (uint32) data, 0, 0)
+#define spi_tx8(spi_no, data)       spi_tx_8(spi_no,  data)   //spi_transaction(spi_no, 0, 0, 0, 0, 8,    (uint32) data, 0, 0)
 #define spi_tx16(spi_no, data)      spi_transaction(spi_no, 0, 0, 0, 0, 16,   (uint32) data, 0, 0)
 #define spi_tx32(spi_no, data)      spi_transaction(spi_no, 0, 0, 0, 0, 32,   (uint32) data, 0, 0)
 
 #define spi_rxd(spi_no, bits) spi_transaction(spi_no, 0, 0, 0, 0, 0, 0, bits, 0)
-#define spi_rx8(spi_no)       spi_transaction(spi_no, 0, 0, 0, 0, 0, 0, 8,    0)
+#define spi_rx8(spi_no)       spi_rx_8(spi_no) /// spi_transaction(spi_no, 0, 0, 0, 0, 0, 0, 8,    0)
 #define spi_rx16(spi_no)      spi_transaction(spi_no, 0, 0, 0, 0, 0, 0, 16,   0)
 #define spi_rx32(spi_no)      spi_transaction(spi_no, 0, 0, 0, 0, 0, 0, 32,   0)
 

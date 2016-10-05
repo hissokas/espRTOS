@@ -176,7 +176,7 @@ int wait_ready (	/* 1:Ready, 0:Timeout */
 	BYTE d;
 
 	printf("Setting T2 wr\n");
-	Timer2 = wt;
+	Timer2 = wt/5;
 	printf("setT\n");
 	do {
 		d = spi_rx8(HSPI);
@@ -211,7 +211,7 @@ static
 int select (void)	/* 1:OK, 0:Timeout */
 {
 	CS_LOW();		/* Set CS# low */
-	spi_tx8(HSPI,0xFF);	/* Dummy clock (force DO enabled) */
+	//spi_tx8(HSPI,0xFF);	/* Dummy clock (force DO enabled) */
 	if (wait_ready(500)) return 1;	/* Wait for card ready */
 
 	deselect();

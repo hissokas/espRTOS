@@ -37,7 +37,15 @@ void LEDBlinkTask (void *pvParameters)
 
 void DiskTask (void *pvParameters)
 {
-	printf("status %d\n", disk_initialize(0));
+	//spi_rxtx8(HSPI, 0xAB); //printf("status %d\n", disk_initialize(0));
+	while(1)
+{
+	//spi_tx8(HSPI,0xAB);
+	//printf("%x\n",spi_rx8(HSPI));
+	printf("%x ---\n",spi_rxtx8(HSPI, 0xCC));
+	vTaskDelay(300/portTICK_RATE_MS);
+	
+}
 	vTaskSuspend(NULL);
 }
 
@@ -49,17 +57,17 @@ void user_init(void)
 // 	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO4_U, FUNC_GPIO4);
 // 	GPIO_AS_OUTPUT(1<<4);
 //	GPIO_OUTPUT_SET(4, 1);
- 	xTaskCreate(DiskTask, (signed char *)"Blink", 256, NULL, 2, NULL);
+ 	//xTaskCreate(DiskTask, (signed char *)"Blink", 256, NULL, 2, NULL);
 	printf("PATLAS2\n");
 	//disk_initialize(0);
 
 //
-//	printf("Init SPI...\n");
-//	spi_init(HSPI);
-//	spi_mode(HSPI, 0, 0);
-//
+	printf("Init SPI...\n");
+	spi_init(HSPI);
+	spi_mode(HSPI, 0, 0);
+
 //	printf("Init done\n");
-//	printf("read %x\n",spi_rxtx8(HSPI, 0xAA));
+	xTaskCreate(DiskTask, (signed char *)"Blink", 256, NULL, 2, NULL);
 //
 //
 //	printf("sent\n");
