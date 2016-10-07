@@ -6,8 +6,13 @@
 #include "espressif/esp_timer.h"
 #include "../fatfs/diskio.h"
 #include "../driver/gpio.h"
-
 #include "../driver/spi.h"
+
+
+#include "access_point.h"
+#include "tcp_server.h"
+
+
 
 os_timer_t mmc_timer;
 
@@ -53,31 +58,18 @@ void user_init(void)
 {
     printf("SDK version:%s\n", system_get_sdk_version());
  	printf("PATLAS\n");
+
+
  	start_os_timer_mmc();
-// 	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO4_U, FUNC_GPIO4);
-// 	GPIO_AS_OUTPUT(1<<4);
-//	GPIO_OUTPUT_SET(4, 1);
- 	//xTaskCreate(DiskTask, (signed char *)"Blink", 256, NULL, 2, NULL);
+
 	printf("PATLAS2\n");
-	//disk_initialize(0);
-
-//
-	printf("Init SPI...\n");
-	spi_init(HSPI);//remove
-	spi_mode(HSPI, 0, 0);//remove
-
-//	printf("Init done\n");
-	xTaskCreate(DiskTask, (signed char *)"Blink", 256, NULL, 2, NULL);
-//
-//
-//	printf("sent\n");
-//printf("status %d\n", disk_initialize(0));
- 	//TODO add printf to timer to see if works
 
 
-	//struct softap_config config;
-	//wifi_softap_get_config(&config);
-	//printf("SSID: %s, PASS: %s \n", config.ssid, config.password);
+	start_ap("AQUARIOUS", "patlas", 9, 6);
+	printf("TCP server: %d\n", start_server());
+
+	//xTaskCreate(DiskTask, (signed char *)"DiskTest", 256, NULL, 2, NULL);
+
 
 }
 
