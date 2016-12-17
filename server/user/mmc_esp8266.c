@@ -15,7 +15,6 @@
 #include "../fatfs/diskio.h"
 
 #include "esp_common.h"
-
 #include "esp_misc.h"
 
 #define FCLK_SLOW() spi_clock(HSPI, 16 , 10)// 80 / (5*8) MHz

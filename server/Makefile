@@ -23,7 +23,8 @@ GEN_BINS= eagle.app.v6.bin
 SPECIAL_MKTARGETS=$(APP_MKTARGETS)
 SUBDIRS=    \
 	user \
-	fatfs  \
+	fatfs2  \
+	sdio \
 	driver
 
 endif # } PDIR
@@ -48,7 +49,8 @@ endif
 
 COMPONENTS_eagle.app.v6 = \
 	user/libuser.a \
-	fatfs/fatfs.a \
+	fatfs2/fatfs2.a \
+	sdio/sdio.a \
 	driver/driver.a
 
 LINKFLAGS_eagle.app.v6 = \

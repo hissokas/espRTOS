@@ -1,7 +1,7 @@
 #!/bin/bash
 
-export SDK_PATH=~/Repos/espRTOS/server/ESP8266_RTOS_SDK
-export BIN_PATH=~/Repos/espRTOS/server/ESP8266_RTOS_SDK/bin
+export SDK_PATH=/home/esp8266/espRTOS/server/ESP8266_RTOS_SDK
+export BIN_PATH=/home/esp8266/espRTOS/server/ESP8266_RTOS_SDK/bin
 
 make clean
 
