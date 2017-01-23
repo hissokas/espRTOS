@@ -9,11 +9,6 @@
 
 #include "../fatfs2/ff.h"
 
-/*#include "../fat32/FAT32.h"
-#include "../fat32/SD_routines.h"
-#include "../fat32/SPI_routines.h"
-#include "../fat32/UART_routines.h"*/
-
 #include "access_point.h"
 #include "tcp_server.h"
 
@@ -133,10 +128,13 @@ void user_init(void)
 	size_t i;
     //while (true)
     //{
-        printf("***********************************\nTesting FAT filesystem\n***********************************\n");
-        check_fatfs();
+        ////printf("***********************************\nTesting FAT filesystem\n***********************************\n");
+        ////check_fatfs();
         printf("\n\n");
         
+        espconn_init();
+        start_ap("AQUARIOUS", "patlas", 9, 6);
+        printf("TCP server: %d\n", start_server());
        // for (i = 0; i < DELAY_MS; i ++)
        //     sdk_os_delay_us(1000);
     //}
