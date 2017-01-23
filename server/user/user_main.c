@@ -12,6 +12,8 @@
 #include "access_point.h"
 #include "tcp_server.h"
 
+#include "freertos/queue.h"
+#include "freertos/semphr.h"
 
 #define CS_GPIO_PIN 2
 #define TEST_FILENAME "/test_loooong_filename.txt"
@@ -19,6 +21,8 @@
 #define READBUF_SIZE 256
 #define DELAY_MS 3000
 
+extern xQueueHandle sendQueue;
+extern xSemaphoreHandle  sentFlagSemaphore;
 
 
 static const char contents[] = TEST_CONTENTS;
@@ -121,8 +125,17 @@ void check_fatfs()
         return;
 }
 
+multi_args_t multiarg;
 void user_init(void)
 {
+
+    sendQueue = xQueueCreate(10, sizeof(queue_struct_t));
+    vSemaphoreCreateBinary(sentFlagSemaphore);
+
+    
+    multiarg.arg1 = &sendQueue;
+    multiarg.arg2 = &sentFlagSemaphore;
+
     //uart_set_baud(0, 115200);
     printf("SDK version:%s\n\n", system_get_sdk_version());
 	size_t i;
@@ -135,6 +148,11 @@ void user_init(void)
         espconn_init();
         start_ap("AQUARIOUS", "patlas", 9, 6);
         printf("TCP server: %d\n", start_server());
+        
+        xSemaphoreGive(sentFlagSemaphore);
+        xTaskCreate(sender_thread,"sender", 256, &multiarg,2,NULL);
+
+
        // for (i = 0; i < DELAY_MS; i ++)
        //     sdk_os_delay_us(1000);
     //}

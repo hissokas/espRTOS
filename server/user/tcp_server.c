@@ -1,8 +1,16 @@
 #include "tcp_server.h"
 
+#include "freertos/queue.h"
+#include "freertos/semphr.h"
+#include "string.h"
+
+
+xSemaphoreHandle  sentFlagSemaphore;
+xQueueHandle sendQueue;
+
 static struct espconn espconn_struct;
 static esp_tcp tcp;
-LOCAL uint16_t server_timeover = 1;//60*60*12; // yes. 12h timeout. so what? :)
+LOCAL uint16_t server_timeover = 300;//60*60*12; // yes. 12h timeout. so what? :)
 
 typedef enum request {GET=0, HEAD, POST, PUT, DELETE, CONNECT, OPTIONS, TRACE} request_t;
 char* request_list[] = { "GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "NaN" };
@@ -24,13 +32,46 @@ char *mime_str[] = {
 	"image/png"
 };
 
-void send_header(void *arg, status_t stat, con_type_t type, unsigned long length)
+void sender_thread(void *args)
 {
-	struct espconn *pespconn = (struct espconn *) arg;
-	char temp_buff[100];
-	sprintf(temp_buff,"HTTP/1.1 %s\r\nContent-Length: %d\r\nContent-Type: %s\r\nConnection: Close\r\n\r\n\0", status_list[stat], length, mime_str[type]);
-	espconn_send(pespconn, temp_buff, strlen(temp_buff));
-	
+	multi_args_t *multiarg = (multi_args_t*)args;
+	xQueueHandle *squeue = (xQueueHandle*) multiarg->arg1;
+	xSemaphoreHandle *ssemaphore = (xSemaphoreHandle*) multiarg->arg2;
+	queue_struct_t data;
+	while(1)//mutex
+	{
+		
+		if(pdTRUE == xQueueReceive(*squeue, &data, 10))
+		{
+			printf("Sender_thread: getting from queue\n");
+			if(pdTRUE == xSemaphoreTake(*ssemaphore, 10))
+			{
+				printf("Sender_thread: sending data\n");
+				espconn_send(data.espconn, data.data, data.size);
+			}
+			//xSemaphoreGive(sentFlagSemaphore); callback give it back
+		}
+	}
+}
+
+
+void send_header(struct espconn *conn, status_t stat, con_type_t type, unsigned long length)
+{
+	queue_struct_t qstruct;
+	qstruct.espconn = conn;
+	sprintf(qstruct.data,"HTTP/1.1 %s\r\nContent-Length: %d\r\nContent-Type: %s\r\nConnection: Close\r\n\r\n\0", status_list[stat], length, mime_str[type]);
+	//espconn_send(pespconn, temp_buff, strlen(temp_buff));
+	qstruct.size = strlen(qstruct.data);
+	xQueueSend(sendQueue, &qstruct, portMAX_DELAY);
+}
+
+void send_data(struct espconn *conn, uint8_t *data, uint8_t size)
+{
+	queue_struct_t qstruct;
+	qstruct.espconn = conn;
+	memcpy((void*)qstruct.data, data, size);
+	qstruct.size = size;
+	xQueueSend(sendQueue, &qstruct, portMAX_DELAY);
 }
 
 
@@ -68,7 +109,8 @@ static void data_recv_callback(void *arg, char *pdata, unsigned short len)
 			
 			if(strncmp("/favico",&fname[0], 7)){
 				send_header(pespconn, _200, HTML, 13);
-				printf("Ret sent: %d\n",espconn_send(pespconn, test, 13));
+				//printf("Ret sent: %d\n",espconn_send(pespconn, test, 13));
+				send_data(pespconn, test, 13);
 				printf("\nPoszlo\n");
 			}
 				
@@ -76,7 +118,7 @@ static void data_recv_callback(void *arg, char *pdata, unsigned short len)
 		break;
 		
 		default:
-			send_header(pespconn,_200, PLAIN, 0);
+			send_header(pespconn, _200, PLAIN, 0);
 			break;
 	}
 	
@@ -85,6 +127,7 @@ static void data_recv_callback(void *arg, char *pdata, unsigned short len)
 static void data_sent_callback(void *arg)
 {
 	printf("\nData sent\n");
+	xSemaphoreGive(sentFlagSemaphore);
 }
 
 static void connect_callback(void *arg)

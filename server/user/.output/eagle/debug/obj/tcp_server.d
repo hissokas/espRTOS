@@ -83,4 +83,7 @@
  /home/esp8266/espRTOS/server/ESP8266_RTOS_SDK/include/lwip/lwip/memp.h \
  /home/esp8266/espRTOS/server/ESP8266_RTOS_SDK/include/lwip/lwip/memp_std.h \
  /home/esp8266/espRTOS/server/ESP8266_RTOS_SDK/include/lwip/lwip/mem.h \
- /home/esp8266/espRTOS/server/ESP8266_RTOS_SDK/include/espressif/espconn.h
+ /home/esp8266/espRTOS/server/ESP8266_RTOS_SDK/include/espressif/espconn.h \
+ /home/esp8266/espRTOS/server/ESP8266_RTOS_SDK/include/freertos/queue.h \
+ /home/esp8266/espRTOS/server/ESP8266_RTOS_SDK/include/freertos/semphr.h \
+ /home/esp8266/espRTOS/server/ESP8266_RTOS_SDK/include/freertos/queue.h
