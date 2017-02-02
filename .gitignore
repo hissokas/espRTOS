@@ -31,4 +31,7 @@
 *.su
 
 # .output directory
-*/.output
+driver/.output
+user/.output
+sdio/.output
+fatfs2/.output
