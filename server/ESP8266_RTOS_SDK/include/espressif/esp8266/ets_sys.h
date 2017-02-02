@@ -25,7 +25,6 @@
 #ifndef __ETS_SYS_H__
 #define __ETS_SYS_H__
 
-#include "c_types.h"
 /* interrupt related */
 #define ETS_SPI_INUM        2
 #define ETS_GPIO_INUM       4
@@ -36,7 +35,7 @@
 #define ETS_FRC_TIMER1_INUM 9
 
 extern char NMIIrqIsOn;
-extern uint32 WDEV_INTEREST_EVENT;
+extern unsigned int WDEV_INTEREST_EVENT;
 
 #define INT_ENA_WDEV        0x3ff20c18
 #define WDEV_TSF0_REACH_INT (BIT(27))
