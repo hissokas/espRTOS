@@ -21,6 +21,13 @@
 #define READBUF_SIZE 256
 #define DELAY_MS 3000
 
+
+// DISABLE PRINTF
+//#define NO_DEBUG
+void user_printf(char c) {}
+
+
+
 //MISSING IN NEW RTOS API
 uint32 ICACHE_FLASH_ATTR
 user_rf_cal_sector_set(void)
@@ -167,6 +174,10 @@ void check_fatfs()
 multi_args_t multiarg;
 void user_init(void)
 {
+
+    #ifdef NO_DEBUG
+        os_install_putc1(user_printf);
+    #endif
 
     sendQueue = xQueueCreate(10, sizeof(queue_struct_t));
     vSemaphoreCreateBinary(sentFlagSemaphore);
