@@ -4,7 +4,7 @@
 #include "freertos/semphr.h"
 #include "string.h"
 
-
+//ICACHE_FLASH_ATTR 
 xSemaphoreHandle  sentFlagSemaphore;
 xQueueHandle sendQueue;
 
@@ -32,7 +32,7 @@ char *mime_str[] = {
 	"image/png"
 };
 
-void sender_thread(void *args)
+ICACHE_FLASH_ATTR void sender_thread(void *args)
 {
 	multi_args_t *multiarg = (multi_args_t*)args;
 	xQueueHandle *squeue = (xQueueHandle*) multiarg->arg1;
@@ -43,11 +43,12 @@ void sender_thread(void *args)
 		
 		if(pdTRUE == xQueueReceive(*squeue, &data, 10))
 		{
-			printf("Sender_thread: getting from queue\n");
-			if(pdTRUE == xSemaphoreTake(*ssemaphore, 10))
+			printf("\nSender_thread: getting from queue\n");
+			while(pdFALSE == xSemaphoreTake(*ssemaphore, 10));
+
 			{
 				printf("Sender_thread: sending data\n");
-				espconn_send(data.espconn, data.data, data.size);
+				printf("Sender_thread: espconn_send return %d",espconn_send(data.espconn, data.data, data.size));
 			}
 			//xSemaphoreGive(sentFlagSemaphore); callback give it back
 		}
@@ -55,7 +56,7 @@ void sender_thread(void *args)
 }
 
 
-void send_header(struct espconn *conn, status_t stat, con_type_t type, unsigned long length)
+ICACHE_FLASH_ATTR void send_header(struct espconn *conn, status_t stat, con_type_t type, unsigned long length)
 {
 	queue_struct_t qstruct;
 	qstruct.espconn = conn;
@@ -65,7 +66,7 @@ void send_header(struct espconn *conn, status_t stat, con_type_t type, unsigned 
 	xQueueSend(sendQueue, &qstruct, portMAX_DELAY);
 }
 
-void send_data(struct espconn *conn, uint8_t *data, uint8_t size)
+ICACHE_FLASH_ATTR void send_data(struct espconn *conn, uint8_t *data, uint8_t size)
 {
 	queue_struct_t qstruct;
 	qstruct.espconn = conn;
@@ -76,7 +77,7 @@ void send_data(struct espconn *conn, uint8_t *data, uint8_t size)
 
 
 const char * msg_welcome = "HELLO IT WORKS";
-static void data_recv_callback(void *arg, char *pdata, unsigned short len)
+ICACHE_FLASH_ATTR static void data_recv_callback(void *arg, char *pdata, unsigned short len)
 {
 	//arg contains pointer to espconn struct
 	struct espconn *pespconn = (struct espconn *) arg;
@@ -118,19 +119,23 @@ static void data_recv_callback(void *arg, char *pdata, unsigned short len)
 		break;
 		
 		default:
+			printf("\nRecv Callback: sending default\n");
 			send_header(pespconn, _200, PLAIN, 0);
 			break;
 	}
 	
 }
 
-static void data_sent_callback(void *arg)
+ICACHE_FLASH_ATTR static void data_sent_callback(void *arg)
 {
-	printf("\nData sent\n");
-	xSemaphoreGive(sentFlagSemaphore);
+	printf("\nSend Callback: Data sent\n");
+	if(pdTRUE == xSemaphoreGive(sentFlagSemaphore)){
+		printf("\nSend Callback: semaphore released\n");
+	}
+	printf("\nSend Callback: cannot release semaphore\n");
 }
 
-static void connect_callback(void *arg)
+ICACHE_FLASH_ATTR static void connect_callback(void *arg)
 {
 	struct espconn *pespconn = (struct espconn *)arg;
 	printf("TCP connection established\n");
@@ -142,7 +147,7 @@ static void connect_callback(void *arg)
 }
 
 
-sint8 start_server(void)
+ICACHE_FLASH_ATTR sint8 start_server(void)
 {
 	tcp.local_port = 80;
 	espconn_struct.type = ESPCONN_TCP;
