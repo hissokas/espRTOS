@@ -3,6 +3,7 @@
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
 #include "string.h"
+#include "../fatfs2/ff.h"
 
 //ICACHE_FLASH_ATTR 
 xSemaphoreHandle  sentFlagSemaphore;
@@ -17,20 +18,52 @@ char* request_list[] = { "GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "OPT
 
 
 typedef enum status {_200=0, _404, _403} status_t;
-char* status_list[] = {"200 OK", " 404 Not Found", "403 Forbidden"};
+char const * const status_list[] = {"200 OK", " 404 Not Found", "403 Forbidden"};
 
-typedef enum con_type {PLAIN, HTML, XML, CSS, JAVASCRIPT, JPG, BMP, PNG} con_type_t;
+typedef enum con_type {HTML=0, CSS, JAVASCRIPT, PNG, XML, JPG, BMP, PLAIN} con_type_t;
 
-char *mime_str[] = {
-	"text/plain",
+char const * const mime_str[] = {
 	"text/html",
-	"text/xml",
 	"text/css",
 	"text/javascript",
+	"image/png",
+	"text/xml",
 	"image/jpeg",
 	"image/bmp",
-	"image/png"
+	"text/plain"
 };
+
+char const * const f_types[] = {
+	"html",
+	"css",
+	"js",
+	"png",
+	"xml",
+	"jpeg"
+};
+
+static char const * const request_content = {
+	"HTTP/1.1 %s\r\n"
+	"Content-Length: %d\r\n"
+	"Content-Type: %s\r\n"
+	"Connection: Close\r\n\r\n\0"
+};
+
+
+ICACHE_FLASH_ATTR con_type_t get_mime(char *file_name)
+{
+	char *ftype = strrchr(file_name, '.');
+	ftype++;
+	printf("GET MIME: %s\n", ftype);
+	uint8_t index;
+	for(index=0; index<(sizeof(f_types)/sizeof(f_types[0])); index++){
+		if(!memcmp(f_types[index], ftype, strlen(f_types[index]))){
+			return (con_type_t) index;
+		}
+	}
+	printf("GET MIME index: %d\n", index);
+	return PLAIN;
+}
 
 ICACHE_FLASH_ATTR void sender_thread(void *args)
 {
@@ -60,8 +93,7 @@ ICACHE_FLASH_ATTR void send_header(struct espconn *conn, status_t stat, con_type
 {
 	queue_struct_t qstruct;
 	qstruct.espconn = conn;
-	sprintf(qstruct.data,"HTTP/1.1 %s\r\nContent-Length: %d\r\nContent-Type: %s\r\nConnection: Close\r\n\r\n\0", status_list[stat], length, mime_str[type]);
-	//espconn_send(pespconn, temp_buff, strlen(temp_buff));
+	sprintf(qstruct.data, request_content, status_list[stat], length, mime_str[type]);
 	qstruct.size = strlen(qstruct.data);
 	xQueueSend(sendQueue, &qstruct, portMAX_DELAY);
 }
@@ -75,39 +107,61 @@ ICACHE_FLASH_ATTR void send_data(struct espconn *conn, uint8_t *data, uint8_t si
 	xQueueSend(sendQueue, &qstruct, portMAX_DELAY);
 }
 
+extern char *readbuf;
+ICACHE_FLASH_ATTR int8_t send_file(struct espconn *conn, char *file_name){
 
-const char * msg_welcome = "HELLO IT WORKS";
+	FIL fd;
+
+    if (FR_OK != f_open(&fd, file_name, FA_READ)){
+		printf("[ERROR] - cannot open file\n");
+		return -1;
+	}
+
+	send_header(conn, _200, get_mime(file_name), (unsigned long)f_size(&fd));
+
+    size_t readed;
+    // Read file
+    printf("f_read(&f, ...)");
+    if ((f_read(&fd, readbuf, sizeof(readbuf) - 1, &readed)))
+        return;
+    readbuf[readed] = 0;
+
+    printf("  Readed %u bytes, test file contents: %s\n", readed, readbuf);
+
+    // Close file
+    printf("f_close(&f)");
+    if ((f_close(&fd)))
+        return;
+}
+
+
 ICACHE_FLASH_ATTR static void data_recv_callback(void *arg, char *pdata, unsigned short len)
 {
 	//arg contains pointer to espconn struct
 	struct espconn *pespconn = (struct espconn *) arg;
 
 	printf("Received data: \"%s\"\n Length: %d\n", pdata, len);
-	//printf("Ret sent: %d\n",espconn_sent(pespconn, (uint8*)msg_welcome, 4/*os_strlen(msg_welcome)*/));
-	////////////DZIALA////printf("Ret send: %d\n",espconn_send(pespconn, (uint8*)msg_welcome, 3));
-	//send_header(_200, PLAIN, 0);
-	
-	//char x[] = "\n<h1>TEST</h1>";
-	//espconn_send(&espconn_struct, x, strlen(x));
 	
 	char* chr;
 	char fname[50];
 	chr = strchr(pdata, ' ');
 	
+	uint8_t request_str_len = chr-pdata;
+
 	uint8_t i;
 	for(i=0; i<sizeof(request_list)/sizeof(request_list[0]); i++){
-		if(!strncmp(request_list[i], &pdata[0], chr-pdata))
+		if(!strncmp(request_list[i], &pdata[0], request_str_len))
 			break;
 	}
 	
-	unsigned int name_len = strchr(chr+1, ' ')-pdata;
+	unsigned int name_len = (strchr(chr+1, ' ') - pdata - request_str_len - 1);
 	char *test = "\n<h1>TEST</h1>";
 	switch(i){
 		case GET:
 			memcpy(&fname[0], chr+1, name_len);
-			fname[name_len] = '\0';
-			printf("\nNAME:%s\n", &fname[0]);
-			
+			fname[name_len+1] = '\0';
+			printf("\nNAME:%s : %d\n", &fname[0], name_len);
+			printf("\nMIME: %s", mime_str[get_mime(&fname[0])]);
 			if(strncmp("/favico",&fname[0], 7)){
 				send_header(pespconn, _200, HTML, 13);
 				//printf("Ret sent: %d\n",espconn_send(pespconn, test, 13));

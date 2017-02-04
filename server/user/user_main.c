@@ -18,7 +18,7 @@
 #define CS_GPIO_PIN 2
 #define TEST_FILENAME "/test_loooong_filename.txt"
 #define TEST_CONTENTS "Hello! It's FatFs on esp8266 with ESP Open RTOS!"
-#define READBUF_SIZE 256
+#define READBUF_SIZE 512
 #define DELAY_MS 3000
 
 
@@ -66,7 +66,7 @@ user_rf_cal_sector_set(void)
 
 
 
-
+char readbuf[READBUF_SIZE];
 extern xQueueHandle sendQueue;
 extern xSemaphoreHandle  sentFlagSemaphore;
 
@@ -96,7 +96,7 @@ static const char *results[] = {
     [FR_INVALID_PARAMETER]   = "Given parameter is invalid"
 };
 
-static char readbuf[READBUF_SIZE];
+
 
 static bool failed(FRESULT res)
 {
@@ -174,40 +174,45 @@ void check_fatfs()
 multi_args_t multiarg;
 void user_init(void)
 {
-
     #ifdef NO_DEBUG
         os_install_putc1(user_printf);
     #endif
 
-    sendQueue = xQueueCreate(10, sizeof(queue_struct_t));
+    sendQueue = xQueueCreate(100, sizeof(queue_struct_t));
     vSemaphoreCreateBinary(sentFlagSemaphore);
-
-    
-    multiarg.arg1 = &sendQueue;
-    multiarg.arg2 = &sentFlagSemaphore;
 
     //uart_set_baud(0, 115200);
     printf("SDK version:%s\n\n", system_get_sdk_version());
-	size_t i;
-    //while (true)
-    //{
-        ////printf("***********************************\nTesting FAT filesystem\n***********************************\n");
-        ////check_fatfs();
-        printf("\n\n");
-        
-        espconn_init();
-        start_ap("AQUARIOUS", "patlas", 9, 6);
-        printf("TCP server: %d\n", start_server());
-        
-        xSemaphoreGive(sentFlagSemaphore);
-        xTaskCreate(sender_thread,"sender", 256, &multiarg,2,NULL);
-
-
-       // for (i = 0; i < DELAY_MS; i ++)
-       //     sdk_os_delay_us(1000);
-    //}
+    printf("\n\n");
     
-   // xTaskCreate(DiskTask, (signed char *)"DiskTest", 256, NULL, 2, NULL);
+
+// -------------------- START SERVER ----------------------------------------//
+    espconn_init();
+    start_ap("AQUARIOUS", "patlas", 9, 6);
+    printf("TCP server: %d\n", start_server());
+// --------------------------------------------------------------------------//
+
+// -------------------- ENABLE SD CARD & FatFS ------------------------------//
+    char const * const vol = "0:";
+
+    FATFS fs;
+    if(FR_OK != f_mount(&fs, vol, 1)){
+        printf("[ERROR] - cannot mount volume\n");
+        return;
+    }
+
+    if (FR_OK != f_chdrive(vol)){
+        printf("[ERROR] - cannot select volume\n");
+        return;
+    }
+
+// ----------------------------------------------------------------------------//    
+    xSemaphoreGive(sentFlagSemaphore);
+
+    multiarg.arg1 = &sendQueue;
+    multiarg.arg2 = &sentFlagSemaphore;
+    xTaskCreate(sender_thread,"sender", 256, &multiarg, 2, NULL);
+
 }
 
 
