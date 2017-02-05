@@ -18,7 +18,7 @@
 #define CS_GPIO_PIN 2
 #define TEST_FILENAME "/test_loooong_filename.txt"
 #define TEST_CONTENTS "Hello! It's FatFs on esp8266 with ESP Open RTOS!"
-#define READBUF_SIZE 512
+#define READBUF_SIZE 100
 #define DELAY_MS 3000
 
 
@@ -73,6 +73,7 @@ extern xSemaphoreHandle  sentFlagSemaphore;
 
 static const char contents[] = TEST_CONTENTS;
 
+#if 0
 static const char *results[] = {
     [FR_OK]                  = "Succeeded",
     [FR_DISK_ERR]            = "A hard error occurred in the low level disk I/O layer",
@@ -170,6 +171,18 @@ void check_fatfs()
     if (failed(f_mount(NULL, vol, 0)))
         return;
 }
+#endif
+
+
+LOCAL void wifi_event(System_Event_t *event) {
+  switch (event->event_id) {
+    case EVENT_SOFTAPMODE_STACONNECTED:
+        printf("TCP server: %d\n", start_server());
+    break;
+    default:
+      os_printf("WiFi Event: %d\n", event->event_id);
+  }
+}
 
 multi_args_t multiarg;
 void user_init(void)
@@ -189,11 +202,13 @@ void user_init(void)
 // -------------------- START SERVER ----------------------------------------//
     espconn_init();
     start_ap("AQUARIOUS", "patlas", 9, 6);
-    printf("TCP server: %d\n", start_server());
+    vTaskDelay (1000/portTICK_RATE_MS);
+    //printf("TCP server: %d\n", start_server());
+    wifi_set_event_handler_cb(wifi_event);
 // --------------------------------------------------------------------------//
 
 // -------------------- ENABLE SD CARD & FatFS ------------------------------//
-    char const * const vol = "0:";
+   /* char const * const vol = "0:";
 
     FATFS fs;
     if(FR_OK != f_mount(&fs, vol, 1)){
@@ -204,14 +219,18 @@ void user_init(void)
     if (FR_OK != f_chdrive(vol)){
         printf("[ERROR] - cannot select volume\n");
         return;
-    }
+    }*/
 
 // ----------------------------------------------------------------------------//    
-    xSemaphoreGive(sentFlagSemaphore);
+    if(pdTRUE != xSemaphoreGive(sentFlagSemaphore))
+        printf("MAIN: cannot release semaphore\n");
 
     multiarg.arg1 = &sendQueue;
     multiarg.arg2 = &sentFlagSemaphore;
-    xTaskCreate(sender_thread,"sender", 256, &multiarg, 2, NULL);
+    //if(pdPASS == xTaskCreate(sender_thread,"sender", 512, &multiarg, 2, NULL))
+    //    printf("MAIN: task created\n");
+
+
 
 }
 

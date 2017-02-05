@@ -50,7 +50,7 @@ static char const * const request_content = {
 };
 
 
-ICACHE_FLASH_ATTR con_type_t get_mime(char *file_name)
+IRAM_ATTR con_type_t get_mime(char *file_name)
 {
 	char *ftype = strrchr(file_name, '.');
 	ftype++;
@@ -65,12 +65,13 @@ ICACHE_FLASH_ATTR con_type_t get_mime(char *file_name)
 	return PLAIN;
 }
 
-ICACHE_FLASH_ATTR void sender_thread(void *args)
+IRAM_ATTR void sender_thread(void *args)
 {
 	multi_args_t *multiarg = (multi_args_t*)args;
 	xQueueHandle *squeue = (xQueueHandle*) multiarg->arg1;
 	xSemaphoreHandle *ssemaphore = (xSemaphoreHandle*) multiarg->arg2;
 	queue_struct_t data;
+	printf("SENDER THREAD started\n");
 	while(1)//mutex
 	{
 		
@@ -88,8 +89,8 @@ ICACHE_FLASH_ATTR void sender_thread(void *args)
 	}
 }
 
-
-ICACHE_FLASH_ATTR void send_header(struct espconn *conn, status_t stat, con_type_t type, unsigned long length)
+/*
+IRAM_ATTR void send_header(struct espconn *conn, status_t stat, con_type_t type, unsigned long length)
 {
 	queue_struct_t qstruct;
 	qstruct.espconn = conn;
@@ -98,7 +99,7 @@ ICACHE_FLASH_ATTR void send_header(struct espconn *conn, status_t stat, con_type
 	xQueueSend(sendQueue, &qstruct, portMAX_DELAY);
 }
 
-ICACHE_FLASH_ATTR void send_data(struct espconn *conn, uint8_t *data, uint8_t size)
+IRAM_ATTR void send_data(struct espconn *conn, uint8_t *data, uint8_t size)
 {
 	queue_struct_t qstruct;
 	qstruct.espconn = conn;
@@ -108,7 +109,7 @@ ICACHE_FLASH_ATTR void send_data(struct espconn *conn, uint8_t *data, uint8_t si
 }
 
 extern char *readbuf;
-ICACHE_FLASH_ATTR int8_t send_file(struct espconn *conn, char *file_name){
+IRAM_ATTR int8_t send_file(struct espconn *conn, char *file_name){
 
 	FIL fd;
 
@@ -119,23 +120,23 @@ ICACHE_FLASH_ATTR int8_t send_file(struct espconn *conn, char *file_name){
 
 	send_header(conn, _200, get_mime(file_name), (unsigned long)f_size(&fd));
 
-    size_t readed;
+    size_t readed=0;
     // Read file
-    printf("f_read(&f, ...)");
-    if ((f_read(&fd, readbuf, sizeof(readbuf) - 1, &readed)))
-        return;
-    readbuf[readed] = 0;
 
-    printf("  Readed %u bytes, test file contents: %s\n", readed, readbuf);
+	do {
+		if (FR_OK != (f_read(&fd, &readbuf[0], 100, &readed))) // 100 = readbuf size
+			return -2;
+		send_data(conn, &readbuf[0], readed);
+		printf("\nSend file: %d", readed);
+	} while(readed < 100);
 
     // Close file
-    printf("f_close(&f)");
-    if ((f_close(&fd)))
-        return;
+    f_close(&fd);
+    return 0;
 }
+*/
 
-
-ICACHE_FLASH_ATTR static void data_recv_callback(void *arg, char *pdata, unsigned short len)
+IRAM_ATTR static void data_recv_callback(void *arg, char *pdata, unsigned short len)
 {
 	//arg contains pointer to espconn struct
 	struct espconn *pespconn = (struct espconn *) arg;
@@ -155,32 +156,33 @@ ICACHE_FLASH_ATTR static void data_recv_callback(void *arg, char *pdata, unsigne
 	}
 	
 	unsigned int name_len = (strchr(chr+1, ' ') - pdata - request_str_len - 1);
-	char *test = "\n<h1>TEST</h1>";
+	//char *test = "\n<h1>TEST</h1>";
 	switch(i){
 		case GET:
 			memcpy(&fname[0], chr+1, name_len);
 			fname[name_len+1] = '\0';
 			printf("\nNAME:%s : %d\n", &fname[0], name_len);
-			printf("\nMIME: %s", mime_str[get_mime(&fname[0])]);
-			if(strncmp("/favico",&fname[0], 7)){
+
+			///////////send_file(pespconn, &fname[0]);
+			/*if(strncmp("/favico",&fname[0], 7)){
 				send_header(pespconn, _200, HTML, 13);
 				//printf("Ret sent: %d\n",espconn_send(pespconn, test, 13));
 				send_data(pespconn, test, 13);
 				printf("\nPoszlo\n");
-			}
+			}*/
 				
 			
 		break;
 		
 		default:
 			printf("\nRecv Callback: sending default\n");
-			send_header(pespconn, _200, PLAIN, 0);
+			///////////////send_header(pespconn, _200, PLAIN, 0);
 			break;
 	}
 	
 }
 
-ICACHE_FLASH_ATTR static void data_sent_callback(void *arg)
+IRAM_ATTR static void data_sent_callback(void *arg)
 {
 	printf("\nSend Callback: Data sent\n");
 	if(pdTRUE == xSemaphoreGive(sentFlagSemaphore)){
@@ -189,7 +191,7 @@ ICACHE_FLASH_ATTR static void data_sent_callback(void *arg)
 	printf("\nSend Callback: cannot release semaphore\n");
 }
 
-ICACHE_FLASH_ATTR static void connect_callback(void *arg)
+static void connect_callback(void *arg)
 {
 	struct espconn *pespconn = (struct espconn *)arg;
 	printf("TCP connection established\n");
@@ -200,22 +202,29 @@ ICACHE_FLASH_ATTR static void connect_callback(void *arg)
     espconn_regist_sentcb(pespconn, data_sent_callback);
 }
 
-
-ICACHE_FLASH_ATTR sint8 start_server(void)
+static void reconnect_callback(void *arg, sint8 er)
 {
-	tcp.local_port = 80;
+	connect_callback(arg);
+}
+
+
+sint8 start_server(void)
+{
+	tcp.local_port = /*lwip_htons*/(80);
 	espconn_struct.type = ESPCONN_TCP;
 	espconn_struct.state = ESPCONN_NONE;
 	espconn_struct.proto.tcp = &tcp;
 	//espconn_struct.proto.tcp = (esp_tcp *)os_zalloc(sizeof(esp_tcp));
-    espconn_struct.proto.tcp->local_port = 80;
+    //espconn_struct.proto.tcp->local_port = 80;
+
 
 	if(espconn_regist_connectcb (&espconn_struct, connect_callback)) return (sint8)(-1);
+	//espconn_regist_reconcb(&espconn_struct, reconnect_callback);
 	
-	espconn_set_opt(&espconn_struct, ESPCONN_REUSEADDR | ESPCONN_NODELAY);
+	///////////espconn_set_opt(&espconn_struct, ESPCONN_REUSEADDR | ESPCONN_NODELAY);
 	//espconn_init();
-	espconn_accept(&espconn_struct);
-	espconn_regist_time(&espconn_struct, server_timeover, 0);
+	if(espconn_accept(&espconn_struct)) return -2;
+	if(espconn_regist_time(&espconn_struct, server_timeover, 0)) return -3;
 	//if(espconn_tcp_set_max_con(1)) return (sint8)(-3);
 
 	return (sint8)0;

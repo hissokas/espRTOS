@@ -10,7 +10,9 @@ void start_ap(uint8 *ssid, uint8 *pass, uint8 ssid_len, uint8 pass_len)
 	memcpy(ap_config.ssid, ssid, ssid_len);
 	memcpy(ap_config.password, pass, pass_len);
 
+	wifi_set_opmode_current(SOFTAP_MODE);//STATIONAP_MODE
 	wifi_softap_set_config_current(&ap_config);
+	
 
 	wifi_softap_dhcps_start();
 
