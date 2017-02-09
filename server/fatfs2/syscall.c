@@ -63,7 +63,7 @@ void ff_rel_grant(xSemaphoreHandle sobj)
  */
 void* ff_memalloc(UINT msize)
 {
-    return malloc(msize);
+    return os_zalloc(msize); //malloc(msize);
 }
 
 /*
@@ -71,7 +71,7 @@ void* ff_memalloc(UINT msize)
  */
 void ff_memfree(void* mblock)
 {
-    free(mblock);
+    os_free(mblock);//free(mblock);
 }
 
 #endif

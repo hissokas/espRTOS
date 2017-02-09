@@ -20,6 +20,7 @@
 #define TEST_CONTENTS "Hello! It's FatFs on esp8266 with ESP Open RTOS!"
 #define READBUF_SIZE 100
 #define DELAY_MS 3000
+#define MEMLEAK_DEBUG
 
 
 // DISABLE PRINTF

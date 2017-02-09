@@ -3265,7 +3265,9 @@ FRESULT f_open (
 	res = find_volume(&path, &fs, mode);
 	if (res == FR_OK) {
 		dj.obj.fs = fs;
+		printf("\nINIT_NAMBUF\n");
 		INIT_NAMBUF(fs);
+		printf("\n END INIT_NAMBUF\n");
 		res = follow_path(&dj, path);	/* Follow the file path */
 #if !_FS_READONLY	/* R/W configuration */
 		if (res == FR_OK) {
