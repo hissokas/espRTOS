@@ -66,7 +66,7 @@ user_rf_cal_sector_set(void)
 
 
 
-char readbuf[READBUF_SIZE];
+extern char readbuf[100];
 extern xQueueHandle sendQueue;
 extern xSemaphoreHandle  sentFlagSemaphore;
 
@@ -179,8 +179,8 @@ LOCAL void wifi_event(System_Event_t *event) {
     case EVENT_SOFTAPMODE_STACONNECTED:
         printf("TCP server: %d\n", start_server());
     break;
-    default:
-      os_printf("WiFi Event: %d\n", event->event_id);
+    //default:
+      //os_printf("WiFi Event: %d\n", event->event_id);
   }
 }
 
@@ -208,7 +208,7 @@ void user_init(void)
 // --------------------------------------------------------------------------//
 
 // -------------------- ENABLE SD CARD & FatFS ------------------------------//
-   /* char const * const vol = "0:";
+    char const * const vol = "0:";
 
     FATFS fs;
     if(FR_OK != f_mount(&fs, vol, 1)){
@@ -219,7 +219,7 @@ void user_init(void)
     if (FR_OK != f_chdrive(vol)){
         printf("[ERROR] - cannot select volume\n");
         return;
-    }*/
+    }
 
 // ----------------------------------------------------------------------------//    
     if(pdTRUE != xSemaphoreGive(sentFlagSemaphore))
@@ -227,8 +227,8 @@ void user_init(void)
 
     multiarg.arg1 = &sendQueue;
     multiarg.arg2 = &sentFlagSemaphore;
-    //if(pdPASS == xTaskCreate(sender_thread,"sender", 512, &multiarg, 2, NULL))
-    //    printf("MAIN: task created\n");
+    if(pdPASS == xTaskCreate(sender_thread, "sender", 512, &multiarg, 2, NULL))
+        printf("MAIN: task created\n");
 
 
 

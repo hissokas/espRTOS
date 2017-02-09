@@ -78,7 +78,7 @@ IRAM_ATTR void sender_thread(void *args)
 		if(pdTRUE == xQueueReceive(*squeue, &data, 10))
 		{
 			printf("\nSender_thread: getting from queue\n");
-			while(pdFALSE == xSemaphoreTake(*ssemaphore, 10));
+			while(pdFALSE == xSemaphoreTake(*ssemaphore, 10)); // zamienic na infinite
 
 			{
 				printf("Sender_thread: sending data\n");
@@ -89,7 +89,7 @@ IRAM_ATTR void sender_thread(void *args)
 	}
 }
 
-/*
+
 IRAM_ATTR void send_header(struct espconn *conn, status_t stat, con_type_t type, unsigned long length)
 {
 	queue_struct_t qstruct;
@@ -108,34 +108,39 @@ IRAM_ATTR void send_data(struct espconn *conn, uint8_t *data, uint8_t size)
 	xQueueSend(sendQueue, &qstruct, portMAX_DELAY);
 }
 
-extern char *readbuf;
+char readbuf[100];
+FIL fd;
+char *file_names = "/a.txt";
 IRAM_ATTR int8_t send_file(struct espconn *conn, char *file_name){
 
-	FIL fd;
-
-    if (FR_OK != f_open(&fd, file_name, FA_READ)){
+	
+	
+	printf("\nTry to send file: %s", file_names);
+    if (FR_OK != f_open(&fd, file_names, FA_READ)){
 		printf("[ERROR] - cannot open file\n");
 		return -1;
 	}
 
-	send_header(conn, _200, get_mime(file_name), (unsigned long)f_size(&fd));
-
+	//send_header(conn, _200, get_mime(file_name), (unsigned long)f_size(&fd));
+	printf("\nFile opened, size: %d",f_size(&fd));
     size_t readed=0;
     // Read file
-
+	//start file sending task instead -> this above cause watchdog restart
 	do {
 		if (FR_OK != (f_read(&fd, &readbuf[0], 100, &readed))) // 100 = readbuf size
-			return -2;
-		send_data(conn, &readbuf[0], readed);
+			return -2; // break and goto f_close()
+		if(readed <= 0) break;
+		//send_data(conn, &readbuf[0], readed);
+		printf("\nSend file: %s", readbuf);
 		printf("\nSend file: %d", readed);
-	} while(readed < 100);
+	} while(1);
 
     // Close file
     f_close(&fd);
     return 0;
 }
-*/
 
+char fname[50];
 IRAM_ATTR static void data_recv_callback(void *arg, char *pdata, unsigned short len)
 {
 	//arg contains pointer to espconn struct
@@ -144,7 +149,7 @@ IRAM_ATTR static void data_recv_callback(void *arg, char *pdata, unsigned short 
 	printf("Received data: \"%s\"\n Length: %d\n", pdata, len);
 	
 	char* chr;
-	char fname[50];
+	
 	chr = strchr(pdata, ' ');
 	
 	uint8_t request_str_len = chr-pdata;
@@ -163,7 +168,7 @@ IRAM_ATTR static void data_recv_callback(void *arg, char *pdata, unsigned short 
 			fname[name_len+1] = '\0';
 			printf("\nNAME:%s : %d\n", &fname[0], name_len);
 
-			///////////send_file(pespconn, &fname[0]);
+			send_file(pespconn, &fname[0]);
 			/*if(strncmp("/favico",&fname[0], 7)){
 				send_header(pespconn, _200, HTML, 13);
 				//printf("Ret sent: %d\n",espconn_send(pespconn, test, 13));
@@ -202,10 +207,10 @@ static void connect_callback(void *arg)
     espconn_regist_sentcb(pespconn, data_sent_callback);
 }
 
-static void reconnect_callback(void *arg, sint8 er)
+/*static void reconnect_callback(void *arg, sint8 er)
 {
 	connect_callback(arg);
-}
+}*/
 
 
 sint8 start_server(void)
@@ -221,7 +226,7 @@ sint8 start_server(void)
 	if(espconn_regist_connectcb (&espconn_struct, connect_callback)) return (sint8)(-1);
 	//espconn_regist_reconcb(&espconn_struct, reconnect_callback);
 	
-	///////////espconn_set_opt(&espconn_struct, ESPCONN_REUSEADDR | ESPCONN_NODELAY);
+	espconn_set_opt(&espconn_struct, ESPCONN_REUSEADDR | ESPCONN_NODELAY);
 	//espconn_init();
 	if(espconn_accept(&espconn_struct)) return -2;
 	if(espconn_regist_time(&espconn_struct, server_timeover, 0)) return -3;

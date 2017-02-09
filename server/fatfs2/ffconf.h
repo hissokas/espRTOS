@@ -15,7 +15,7 @@
 /---------------------------------------------------------------------------*/
 
 #ifndef _FS_READONLY
-#define _FS_READONLY	0
+#define _FS_READONLY	1
 #endif
 /* This option switches read-only configuration. (0:Read/Write or 1:Read-only)
 /  Read-only configuration removes writing API functions, f_write(), f_sync(),
@@ -124,7 +124,7 @@
 */
 
 #ifndef _USE_LFN
-#define	_USE_LFN	3
+#define	_USE_LFN	2
 #endif
 #ifndef _MAX_LFN
 #define	_MAX_LFN	255
@@ -213,7 +213,7 @@
 /  disk_ioctl() function. */
 
 
-#define	_USE_TRIM	1
+#define	_USE_TRIM	0
 /* This option switches support of ATA-TRIM. (0:Disable or 1:Enable)
 /  To enable Trim function, also CTRL_TRIM command should be implemented to the
 /  disk_ioctl() function. */
@@ -243,7 +243,7 @@
 /  buffer in the file system object (FATFS) is used for the file data transfer. */
 
 #ifndef _FS_EXFAT
-#define _FS_EXFAT	1
+#define _FS_EXFAT	0
 #endif
 /* This option switches support of exFAT file system. (0:Disable or 1:Enable)
 /  When enable exFAT, also LFN needs to be enabled. (_USE_LFN >= 1)
@@ -265,7 +265,7 @@
 /  These options have no effect at read-only configuration (_FS_READONLY = 1). */
 
 #ifndef _FS_LOCK
-#define	_FS_LOCK	64
+#define	_FS_LOCK	0//64
 #endif
 /* The option _FS_LOCK switches file lock function to control duplicated file open
 /  and illegal operation to open objects. This option must be 0 when _FS_READONLY
@@ -278,7 +278,7 @@
 /      lock control is independent of re-entrancy. */
 
 
-#define _FS_REENTRANT	1
+#define _FS_REENTRANT 0
 #ifndef _FS_TIMEOUT
 #define _FS_TIMEOUT		1000
 #endif
